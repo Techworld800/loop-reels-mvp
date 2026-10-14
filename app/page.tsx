@@ -83,7 +83,17 @@ export default function Home() {
     try {
       const r = await fetch('/api/reels', { cache: 'no-store' });
       const j = await r.json();
-      if (r.ok) setItems(j.reels || []);
+      if (r.ok) {
+        const nextItems: Reel[] = j.reels || [];
+        setItems(current => {
+          if (current.length === nextItems.length && current.every((item, index) => {
+            const next = nextItems[index];
+            return item.id === next.id && item.url === next.url && item.caption === next.caption &&
+              item.shared_by === next.shared_by && item.created_at === next.created_at && item.platform === next.platform;
+          })) return current;
+          return nextItems;
+        });
+      }
       else if (r.status === 503) setNotice('Database setup is not finished yet.');
       else setNotice(j.error || 'Could not load the feed.');
     } catch {
@@ -94,8 +104,29 @@ export default function Home() {
   useEffect(() => {
     if (!ready) return;
     refresh();
-    const id = window.setInterval(refresh, 6000);
-    return () => window.clearInterval(id);
+    let id: number | undefined;
+    const startPolling = () => {
+      if (document.visibilityState === 'visible' && id === undefined) {
+        void refresh();
+        id = window.setInterval(refresh, 20000);
+      }
+    };
+    const stopPolling = () => {
+      if (id !== undefined) {
+        window.clearInterval(id);
+        id = undefined;
+      }
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') startPolling();
+      else stopPolling();
+    };
+    startPolling();
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => {
+      stopPolling();
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
   }, [ready, refresh]);
 
   async function submit(e: React.FormEvent) {
