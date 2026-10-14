@@ -103,7 +103,6 @@ export default function Home() {
 
   useEffect(() => {
     if (!ready) return;
-    refresh();
     let id: number | undefined;
     const startPolling = () => {
       if (document.visibilityState === 'visible' && id === undefined) {
